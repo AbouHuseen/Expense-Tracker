@@ -1,111 +1,99 @@
-// 1. تحديد العناصر من واجهة المستخدم (DOM Elements) بالتوافق مع الـ HTML الحالي
-const balanceAmount = document.getElementById('balance');
-const incomeAmount = document.getElementById('income-amount');
-const expenseAmount = document.getElementById('expense-amount');
-const transactionsList = document.getElementById('transactions-list');
-const descriptionInput = document.getElementById('description');
-const amountInput = document.getElementById('amount');
-const transactionForm = document.getElementById('transaction-form');
+const balanceEl = document.getElementById("balance");
+const incomeAmountEl = document.getElementById("income-amount");
+const expenseAmountEl = document.getElementById("expense-amount");
+const transactionListEl = document.getElementById("transaction-list");
+const transactionFormEl = document.getElementById("transaction-form");
+const descriptionEl = document.getElementById("description");
+const amountEl = document.getElementById("amount");
 
-// 2. مصفوفة لتخزين المعاملات
-let transactions = [];
+let transactions = JSON.parse(localStorage.getItem("transactions")) || [];
 
-// 3. دالة لتحديث المبالغ (الرصيد، الدخل، المصروفات)
-function updateValues() {
-    const amounts = transactions.map(transaction => transaction.amount);
+transactionFormEl.addEventListener("submit", addTransaction);
 
-    // حساب إجمالي الرصيد الحالي
-    const total = amounts.reduce((acc, item) => (acc += item), 0).toFixed(2);
-
-    // حساب إجمالي الدخل
-    const income = amounts
-        .filter(item => item > 0)
-        .reduce((acc, item) => (acc += item), 0)
-        .toFixed(2);
-
-    // حساب إجمالي المصروفات
-    const expense = (
-        amounts.filter(item => item < 0).reduce((acc, item) => (acc += item), 0) * -1
-    ).toFixed(2);
-
-    // تحديث النصوص في الواجهة
-    balanceAmount.innerText = `$${total}`;
-    incomeAmount.innerText = `$${income}`;
-    expenseAmount.innerText = `$${expense}`;
-}
-
-// 4. دالة لحذف المعاملة بناءً على الـ ID الخاص بها
-function deleteTransaction(id) {
-    // تصفية مصفوفة المعاملات
-    transactions = transactions.filter(transaction => transaction.id !== id);
-    
-    // تحديث الواجهة والحسابات
-    displayTransactions();
-    updateValues();
-}
-
-// 5. دالة لعرض المعاملات داخل عنصر الـ ul المخصص لها
-function displayTransactions() {
-    // تفريغ القائمة أولاً لمنع التكرار
-    transactionsList.innerHTML = "";
-
-    // إذا كانت المصفوفة فارغة، اعرض رسالة نصية بسيطة داخل القائمة
-    if (transactions.length === 0) {
-        transactionsList.innerHTML = `<li style="justify-content: center; color: #999; border-left: none;">No transactions yet</li>`;
-        return;
-    }
-
-    // المرور على المعاملات وبنائها كعناصر قائمة li
-    transactions.forEach(transaction => {
-        const item = document.createElement('li');
-        const sign = transaction.amount < 0 ? '-' : '+';
-        const itemColor = transaction.amount < 0 ? '#c62828' : '#2e7d32';
-
-        // تطبيق لون الحافة الجانبية بناءً على نوع المعاملة
-        item.style.borderLeft = `5px solid ${itemColor}`;
-
-        // تصميم الجزء الداخلي مع زر الحذف ❌
-        item.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <button class="delete-btn" onclick="deleteTransaction(${transaction.id})" style="background: none; border: none; color: #e53935; cursor: pointer; font-size: 0.9rem; padding: 2px 5px; border-radius: 3px;">❌</button>
-                <span style="font-weight: 500; color: #333;">${transaction.description}</span>
-            </div>
-            <span style="font-weight: bold; color: ${itemColor};">${sign}$${Math.abs(transaction.amount).toFixed(2)}</span>
-        `;
-        
-        transactionsList.appendChild(item);
-    });
-}
-
-// 6. دالة لإضافة معاملة جديدة عند إرسال النموذج
 function addTransaction(e) {
-    e.preventDefault(); // منع الصفحة من تحديث نفسها
+  e.preventDefault();
 
-    // التحقق من المدخلات
-    if (descriptionInput.value.trim() === '' || amountInput.value.trim() === '') {
-        alert('Please enter a description and an amount.');
-        return;
-    }
+  // get form values
+  const description = descriptionEl.value.trim();
+  const amount = parseFloat(amountEl.value);
 
-    // إنشاء كائن المعاملة الجديدة
-    const transaction = {
-        id: Math.floor(Math.random() * 100000000),
-        description: descriptionInput.value,
-        amount: +amountInput.value // تحويل النص إلى رقم باستخدام علامة +
-    };
+  transactions.push({
+    id: Date.now(),
+    description,
+    amount,
+  });
 
-    // إضافة العنصر للمصفوفة وتحديث الواجهات
-    transactions.push(transaction);
-    displayTransactions();
-    updateValues();
+  localStorage.setItem("transactions", JSON.stringify(transactions));
 
-    // تفريغ خانات الإدخال
-    descriptionInput.value = '';
-    amountInput.value = '';
+  updateTransactionList();
+  updateSummary();
+
+  transactionFormEl.reset();
 }
 
-// 7. ربط حدث الإرسال (submit) بالنموذج بالكامل بدلاً من حدث الـ click على الزر وحدها
-transactionForm.addEventListener('submit', addTransaction);
+function updateTransactionList() {
+  transactionListEl.innerHTML = "";
 
-// تشغيل الحالة البدائية للمشروع
-displayTransactions();
+  const sortedTransactions = [...transactions].reverse();
+
+  sortedTransactions.forEach((transaction) => {
+    const transactionEl = createTransactionElement(transaction);
+    transactionListEl.appendChild(transactionEl);
+  });
+}
+
+function createTransactionElement(transaction) {
+  const li = document.createElement("li");
+  li.classList.add("transaction");
+  li.classList.add(transaction.amount > 0 ? "income" : "expense");
+
+  li.innerHTML = `
+    <span>${transaction.description}</span>
+    <span>
+  
+    ${formatCurrency(transaction.amount)}
+      <button class="delete-btn" onclick="removeTransaction(${transaction.id})">x</button>
+    </span>
+  `;
+
+  return li;
+}
+
+function updateSummary() {
+  // 100, -50, 200, -200 => 50
+  const balance = transactions.reduce((acc, transaction) => acc + transaction.amount, 0);
+
+  const income = transactions
+    .filter((transaction) => transaction.amount > 0)
+    .reduce((acc, transaction) => acc + transaction.amount, 0);
+
+  const expenses = transactions
+    .filter((transaction) => transaction.amount < 0)
+    .reduce((acc, transaction) => acc + transaction.amount, 0);
+
+  // update ui => todo: fix the formatting
+  balanceEl.textContent = formatCurrency(balance);
+  incomeAmountEl.textContent = formatCurrency(income);
+  expenseAmountEl.textContent = formatCurrency(expenses);
+}
+
+function formatCurrency(number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(number);
+}
+
+function removeTransaction(id) {
+  // filter out the one we wanted to delete
+  transactions = transactions.filter((transaction) => transaction.id !== id);
+
+  localStorage.setItem("transcations", JSON.stringify(transactions));
+
+  updateTransactionList();
+  updateSummary();
+}
+
+// initial render
+updateTransactionList();
+updateSummary();
